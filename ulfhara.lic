@@ -102,6 +102,7 @@ class UlfHara
         Flags.reset('UlfHara-task-complete')
         bput('ask zukir about task complete', "hands you", "You are not currently on a task")
       end
+      wait_while { Script.running?('tendme') }
       task = bput("ask zukir for task", "STUDY their situation for clues", "Safes and other strongboxes were hidden around the keep", "help any of our wounded you encounter", "KILL the invaders to find them", "need to SEARCH the ruins", " SEARCHing the sewers to remove these threats", "Will you SEARCH and recover these items", "Thank you for your service", "you must wait before", "We could use some help thinning their numbers", "You are already on a task.  Please complete that task")
       case task
       when /STUDY their situation for clues/i
