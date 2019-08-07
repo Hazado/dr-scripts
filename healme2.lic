@@ -49,8 +49,8 @@ class HealMe
 
     return unless prepare?(data['abbrev'], data['mana'], data['symbiosis'], command)
     @prepare_time = Time.now
-    if check_to_harness(settings.use_harness_when_arcana_locked) && !force_cambrinth
-      spells[XMLData.prepared_spell]['prep_time'] = checkcastrt-(data['cambrinth'].flatten.size*3)
+    if check_to_harness(settings.use_harness_when_arcana_locked)
+      spells[XMLData.prepared_spell]['prep_time'] = checkcastrt-(data['cambrinth'].flatten.size.to_i * 3) + 1
     else
       cambrinth_rt = data['cambrinth'].flatten.sum {|x|
                        if x <= 4
@@ -101,7 +101,7 @@ class HealMe
                          24
                        end
                      }
-      spells[XMLData.prepared_spell]['prep_time'] = checkcastrt-(data['cambrinth'].flatten.size + cambrinth_rt)
+      spells[XMLData.prepared_spell]['prep_time'] = checkcastrt-(data['cambrinth'].flatten.size + cambrinth_rt + 1)
     end
   end
   
@@ -229,7 +229,7 @@ class HealMe
     @wounds = check_perc_health
     @wounds.each{|key, y| 
       y.each{|x|
-        Flags.add("hm-#{x['location'].downcase}-#{x['type'].downcase}-#{x['part'].downcase}", "The #{x['location'].downcase} #{x['type'] == 'Fresh' ? 'wounds' : 'scars'} on your #{x['part'].downcase.sub(/skin/,'nerves')} appear completely healed")
+        Flags.add("hm-#{x['location'].downcase}-#{x['type'].downcase}-#{x['part'].downcase}", /The #{x['location'].downcase} #{x['type'] == 'Fresh' ? 'wounds' : 'scars'} on your #{x['part'].downcase.sub(/skin/,'(?:nerves|skin)')} appear completely healed/)
         before_dying { Flags.delete("hm-#{x['location'].downcase}-#{x['type'].downcase}-#{x['part'].downcase}") }
       }
     }
