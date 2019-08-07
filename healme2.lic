@@ -1,0 +1,272 @@
+=begin
+  Documentation: https://elanthipedia.play.net/Lich_script_repository#healme
+=end
+
+# ***BEGIN USER CONFIG***
+
+UserVars.healme_debug ||= false # turn on echos in the script
+
+# ***END USER CONFIG***
+
+custom_require.call(%w[common common-arcana common-healing events])
+
+@wounds = []
+
+class HealMe
+  include DRC
+  include DRCA
+  include DRCH
+
+  def initialize
+    @deadly_wounds = %w[SKIN HEAD NECK CHEST ABDOMEN BACK]
+    @settings = get_settings
+
+    arg_definitions = [
+      [
+        { name: 'bleeders', regex: /^[\w\s,]+$/i, variable: true, optional: true, description: 'comma separated list of bleeders to keep. "right arm, chest, back"' }
+      ]
+    ]
+
+    args = parse_args(arg_definitions)
+    @using_waggle = false
+    @prepare_time = nil
+    
+    heal_self(args.bleeders)
+  end
+
+  def severity(wounds)
+    wounds.map { |wound| wound['level'] }.inject(&:+)
+  end
+
+  def prepare(data, settings, spells)
+    release_cyclics if data['cyclic']
+    DRC.bput('release spell', 'You let your concentration lapse', "You aren't preparing a spell") unless checkprep == 'None'
+    DRC.bput('release mana', 'You release all', "You aren't harnessing any mana")
+
+    command = 'prep'
+    command = data['prep'] if data['prep']
+    command = data['prep_type'] if data['prep_type']
+
+    return unless prepare?(data['abbrev'], data['mana'], data['symbiosis'], command)
+    @prepare_time = Time.now
+    spells[XMLData.prepared_spell]['prep_time'] = checkcastrt-5
+  end
+  
+  def harness(data, settings, force_cambrinth = false, part, spells)
+    return if data['cyclic']
+    discern(check_discern(spells[XMLData.prepared_spell], @settings), part, spells) if spells[XMLData.prepared_spell]['use_auto_mana']
+    
+    if check_to_harness(settings.use_harness_when_arcana_locked) && !force_cambrinth
+      harness_mana(data['cambrinth'].flatten)
+    else
+      settings.cambrinth_items.each_with_index do |item, index|
+        case data['cambrinth'].first
+        when Array
+          find_charge_invoke_stow(item['name'], item['stored'], item['cap'], settings.dedicated_camb_use, data['cambrinth'][index], settings.cambrinth_invoke_exact_amount)
+        when Fixnum, Integer
+          find_charge_invoke_stow(item['name'], item['stored'], item['cap'], settings.dedicated_camb_use, data['cambrinth'], settings.cambrinth_invoke_exact_amount)
+        end
+      end
+    end
+  end
+  
+  def discern(data, part, spells)
+    spellname = if data['abbrev'] =~ /hw/i
+                  'Heal Wounds'
+                elsif data['abbrev'] =~ /hs/i
+                  'Heal Scars'
+                elsif data['abbrev'] =~ /heal/
+                  'Heal'
+                end
+    max_mana = if data['abbrev'] =~ /hw/i
+                 part.sum{ |x| if x['type'] =~ /Fresh/i;x['level'];else;0;end;} * 2
+               elsif data['abbrev'] =~ /hs/
+                 part.sum{ |x| x['level']} * 2
+               elsif data['abbrev'] =~ /heal/
+                 maxmana = 9000 #impossibly high mana amount so that it doesn't recalculate
+               end
+               
+    if data['cambrinth'].flatten.sum >= max_mana
+      spells[spellname]['cambrinth'] = []
+      unless @settings.cambrinth_items[0]['name']
+        @settings.cambrinth_items = [{
+          'name' => @settings.cambrinth,
+          'cap' => @settings.cambrinth_cap,
+          'stored' => @settings.stored_cambrinth
+        }]
+      end
+      total_cambrinth_cap = @settings.cambrinth_items.map { |x| x['cap'] }.inject(&:+)
+      charges_count_floor = max_mana >= @settings.cambrinth_num_charges ? @settings.cambrinth_num_charges : 1
+      @settings.cambrinth_items.each do |item|
+        item['charges'] = ((item['cap'].to_f / total_cambrinth_cap) * charges_count_floor).ceil
+      end
+      total_cambrinth_charges = @settings.cambrinth_items.map { |x| x['charges'] }.inject(&:+)
+      total_cambrinth_mana = [max_mana, total_cambrinth_cap].min
+      @settings.cambrinth_items.each_with_index do |item, index|
+        spells[spellname]['cambrinth'] ||= []
+        charge_amount = (total_cambrinth_mana / total_cambrinth_charges) * item['charges']
+        spells[spellname]['cambrinth'][index] = []
+        charge_amount.times do |i|
+          spells[spellname]['cambrinth'][index][i % item['charges']] += 1
+        end
+      end
+      spells[spellname]['mana'] = max_mana - spells[spellname]['cambrinth'].flatten.sum + 1
+    end
+  end
+
+  def cure_disease(spells, health)
+    return unless health['diseased']
+    return unless spells['Cure Disease']
+    Flags.add('hm-disease', 'You feel completely cured of all disease', 'you don.t seem to be so afflicted')
+    loop do
+      if Flags['hm-disease']
+        Flags.delete('hm-disease')
+        return
+      else
+        unless DRSpells.active_spells['Cure Disease']
+          check_discern(spells['Cure Disease'], @settings) if spells['Cure Disease']['use_auto_mana']
+          DRCA.cast_spell(spells['Cure Disease'], @settings, true)
+        end
+      end
+    end
+  end
+
+  def flush_poisons(spells, health)
+    return unless health['poisoned']
+    return unless spells['Flush Poisons']
+    Flags.add('hm-poison', '^A sudden wave of heat washes over you as your spell attempts to flush poison from your body but finds no toxins', '^A sudden wave of heat washes over you as your spell flushes all poison from your body')
+    loop do
+      if Flags['hm-poison']
+        Flags.delete('hm-poison')
+        return
+      else
+        unless DRSpells.active_spells['Flush Poisons']
+          check_discern(spells['Flush Poisons'], @settings) if spells['Flush Poisons']['use_auto_mana']
+          DRCA.cast_spell(spells['Flush Poisons'], @settings, true)
+        end
+      end
+    end
+  end
+
+  def filter_wounds(skip_parts)
+    echo skip_parts if UserVars.healme_debug
+    echo @wounds if UserVars.healme_debug
+    @wounds.each{|key, y|
+      y.reject!{|x| x['part'] =~ /#{skip_parts.join('|')}/i && x['type'] =~ /Fresh/i && x['location'] =~ /External/i} if !skip_parts.empty?
+      y.reject!{|x| Flags["hm-#{x['location'].downcase}-#{x['type'].downcase}-#{x['part'].downcase}"]}
+      @wounds.delete(key) if y.empty?
+    }
+    echo("wounds: #{@wounds}") if UserVars.healme_debug
+  end
+  
+  def best_wound(spells, location)
+    danger_wounds = @wounds.select { |part, _| @deadly_wounds.include?(part) }.select{ |_, val| val.any?{|x| x['type'] =~ /#{location}/ }}.sort_by { |_, val| severity(val) } if spells['Heal']
+    danger_wounds = @wounds.select { |part, _| @deadly_wounds.include?(part) }.select{ |_, val| val.any?{|x| x['type'] =~ /#{location}/ }}.sort_by { |_, val| severity(val) }.reverse unless spells['Heal']
+    
+    danger_wounds.each do |(part, _)|
+        return @wounds[part]
+        break;
+      end
+    
+    @wounds.select{ |_, val| val.any?{|x| x['type'] =~ /#{location}/ }}.sort_by { |_, val| severity(val) }.each { |_, wound| return wound } if spells['Heal']
+    @wounds.select{ |_, val| val.any?{|x| x['type'] =~ /#{location}/ }}.sort_by { |_, val| severity(val) }.reverse_each { |_, wound| return wound } unless spells['Heal']
+  end
+    
+  def check_wounds(skip_parts)
+    @wounds = check_perc_health
+    @wounds.each{|key, y| 
+      y.each{|x|
+        Flags.add("hm-#{x['location'].downcase}-#{x['type'].downcase}-#{x['part'].downcase}", "The #{x['location'].downcase} #{x['type'] == 'Fresh' ? 'wounds' : 'scars'} on your #{x['part'].downcase.sub(/skin/,'nerves')} appear completely healed")
+        before_dying { Flags.delete("hm-#{x['location'].downcase}-#{x['type'].downcase}-#{x['part'].downcase}") }
+      }
+    }
+    filter_wounds(skip_parts)
+    exit if @wounds.empty?
+  end
+
+  def heal_self(skip_parts)
+    return unless DRStats.empath?
+    
+    skip_parts = skip_parts.split(',').map(&:upcase).map(&:strip)
+    
+    check_wounds(skip_parts)
+    
+    spells = if @settings.waggle_sets['healing']
+               @using_waggle = true
+               @settings.waggle_sets['healing']
+             else
+               @settings.empath_healing
+             end
+             
+    echo("skip: #{skip_parts}") if UserVars.healme_debug
+    echo("wounds: #{@wounds}") if UserVars.healme_debug
+    echo("dw: #{@deadly_wounds}") if UserVars.healme_debug
+    
+    health = check_health
+    cure_disease(spells, health)
+    flush_poisons(spells, health)
+    
+    spells['Regenerate'] = {"skill"=>"Utility", "mana"=>@settings.empath_healing['REGENERATE'].first, "cambrinth"=> @settings.empath_healing['REGENERATE'][1..-1], "abbrev"=>"heal", "cyclic"=> true, "mana_type"=>"life"} if (@settings.empath_healing['REGENERATE'] && !@using_waggle)
+    spells['Heal'] = {"skill"=>"Utility", "mana"=>@settings.empath_healing['HEAL'].first, "cambrinth"=> @settings.empath_healing['HEAL'][1..-1], "abbrev"=>"heal", "mana_type"=>"life"} if (@settings.empath_healing['HEAL'] && !@using_waggle)
+    spells['Heal Wounds'] = {"skill"=>"Utility", "mana"=>@settings.empath_healing['HW'].first, "cambrinth"=> @settings.empath_healing['HW'][1..-1], "abbrev"=>"hw", "mana_type"=>"life"} if (@settings.empath_healing['HW'] && !@using_waggle)
+    spells['Heal Scars'] = {"skill"=>"Utility", "mana"=>@settings.empath_healing['hs'].first, "cambrinth"=> @settings.empath_healing['hs'][1..-1], "abbrev"=>"hs", "mana_type"=>"life"} if (@settings.empath_healing['HS'] && !@using_waggle)
+    
+    check_discern(spells['Regenerate'], @settings) if spells['Regenerate']['use_auto_mana']
+    check_discern(spells['Heal'], @settings) if spells['Heal']['use_auto_mana']
+    check_discern(spells['Heal Wounds'], @settings) if spells['Heal Wounds']['use_auto_mana']
+    check_discern(spells['Heal Scars'], @settings) if spells['Heal Scars']['use_auto_mana']
+    
+    
+    loop do
+      if @wounds.empty?
+        check_wounds(skip_parts)
+      end
+      filter_wounds(skip_parts)
+        
+      if XMLData.prepared_spell.eql?('None')
+        if (spells['Regenerate'] && !DRSpells.active_spells.include?('Regenerate')) && skip_parts.empty?
+          prepare(spells['Regenerate'], @settings, spells) 
+        elsif (spells['Heal'] && !DRSpells.active_spells.include?('Heal'))
+          prepare(spells['Heal'], @settings, spells)
+        elsif spells['Heal Wounds'] && @wounds.any?{|key, value| value.any?{|x| x['type'] == "Fresh"}}
+          part = best_wound(spells, 'Fresh')
+          discern(check_discern(spells['Heal Wounds'], @settings), part, spells) if spells['Heal Wounds']['use_auto_mana']
+          prepare(spells['Heal Wounds'], @settings, spells)
+        elsif spells['Heal Scars'] && @wounds.any?{|key, value| value.any?{|x| x['type'] == "Scars"}}
+          part = best_wound(spells, 'Scars')
+          discern(check_discern(spells['Heal Scars'], @settings), part, spells) if spells['Heal Scars']['use_auto_mana']
+          prepare(spells['Heal Scars'], @settings, spells)
+        end
+      end
+      
+      if spells[XMLData.prepared_spell]['prep_time']
+        pause 0.1 until checkcastrt.zero? || Time.now - @prepare_time >= spells[XMLData.prepared_spell]['prep_time']
+      else
+        waitcastrt?
+      end
+      
+      harness(spells[XMLData.prepared_spell], @settings, false, part, spells)
+      
+      waitcastrt?
+      filter_wounds(skip_parts)
+      if XMLData.prepared_spell =~ /Heal Wounds/i
+        part = best_wound(spells, 'Fresh')
+      elsif XMLData.prepared_spell =~ /Heal Scars/i
+        part = best_wound(spells, 'Scars')
+      end
+      spells['Regenerate']['cast'] = 'cast'
+      spells['Heal']['cast'] = 'cast'
+      spells['Heal']['cast'] = 'cast scars' if !skip_parts.empty?
+      spells['Heal Wounds']['cast'] = "cast #{part[0]['part'].to_s.downcase}#{skip_parts.include?(part[0]['part'].to_s) ? ' internal' : ''}"
+      spells['Heal Scars']['cast'] = "cast #{part[0]['part'].to_s.downcase}"
+      if part.nil? && XMLData.prepared_spell != 'Heal' && XMLData.prepared_spell != 'Regenerate'
+        DRC.bput('release spell', 'You let your concentration lapse', "You aren't preparing a spell") unless checkprep == 'None'
+        DRC.bput('release mana', 'You release all', "You aren't harnessing any mana")
+      else
+        cast?(spells[XMLData.prepared_spell]['cast'])
+      end
+    end
+  end
+end
+
+HealMe.new
