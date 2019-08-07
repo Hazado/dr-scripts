@@ -49,7 +49,60 @@ class HealMe
 
     return unless prepare?(data['abbrev'], data['mana'], data['symbiosis'], command)
     @prepare_time = Time.now
-    spells[XMLData.prepared_spell]['prep_time'] = checkcastrt-5
+    if check_to_harness(settings.use_harness_when_arcana_locked) && !force_cambrinth
+      spells[XMLData.prepared_spell]['prep_time'] = checkcastrt-(data['cambrinth'].flatten.size*3)
+    else
+      cambrinth_rt = data['cambrinth'].flatten.sum {|x|
+                       if x <= 4
+                         2
+                       elsif x >= 5 && x <= 9
+                         3
+                       elsif x >= 10 && x <= 14
+                         4
+                       elsif x >= 15 && x <= 19
+                         5
+                       elsif x >= 20 && x <= 24
+                         6
+                       elsif x >= 25 && x <= 29
+                         7
+                       elsif x >= 30 && x <= 34
+                         8
+                       elsif x >= 35 && x <= 39
+                         9
+                       elsif x >= 40 && x <= 44
+                         10
+                       elsif x >= 45 && x <= 49
+                         11
+                       elsif x >= 50 && x <= 54
+                         12
+                       elsif x >= 55 && x <= 59
+                         13
+                       elsif x >= 60 && x <= 64
+                         14
+                       elsif x >= 65 && x <= 69
+                         15
+                       elsif x >= 70 && x <= 74
+                         16
+                       elsif x >= 75 && x <= 79
+                         17
+                       elsif x >= 80 && x <= 84
+                         18
+                       elsif x >= 85 && x <= 89
+                         19
+                       elsif x >= 90 && x <= 94
+                         20
+                       elsif x >= 95 && x <= 99
+                         21
+                       elsif x >= 100 && x <= 104
+                         22
+                       elsif x >= 105 && x <= 109
+                         23
+                       else
+                         24
+                       end
+                     }
+      spells[XMLData.prepared_spell]['prep_time'] = checkcastrt-(data['cambrinth'].flatten.size + cambrinth_rt)
+    end
   end
   
   def harness(data, settings, force_cambrinth = false, part, spells)
