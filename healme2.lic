@@ -50,7 +50,7 @@ class HealMe
     return unless prepare?(data['abbrev'], data['mana'], data['symbiosis'], command)
     @prepare_time = Time.now
     if check_to_harness(settings.use_harness_when_arcana_locked)
-      spells[XMLData.prepared_spell]['prep_time'] = checkcastrt-(data['cambrinth'].flatten.size.to_i * 3) + 1
+      spells[XMLData.prepared_spell]['prep_time'] = (data['cambrinth'].flatten.size.to_i * 3) + 1
     else
       cambrinth_rt = data['cambrinth'].flatten.sum {|x|
                        if x <= 4
@@ -101,7 +101,7 @@ class HealMe
                          24
                        end
                      }
-      spells[XMLData.prepared_spell]['prep_time'] = checkcastrt-(data['cambrinth'].flatten.size + cambrinth_rt + 1)
+      spells[XMLData.prepared_spell]['prep_time'] = data['cambrinth'].flatten.size + cambrinth_rt + 1
     end
   end
   
@@ -131,11 +131,11 @@ class HealMe
                 elsif data['abbrev'] =~ /heal/
                   'Heal'
                 end
-    max_mana = if data['abbrev'] =~ /hw/i
+    max_mana = if data['abbrev'] =~ /hw/i || XMLData.prepared_spell =~ /Heal Wounds/i
                  part.sum{ |x| if x['type'] =~ /Fresh/i;x['level'];else;0;end;} * 2
-               elsif data['abbrev'] =~ /hs/
+               elsif data['abbrev'] =~ /hs/ || XMLData.prepared_spell =~ /Heal Scars/i
                  part.sum{ |x| x['level']} * 2
-               elsif data['abbrev'] =~ /heal/
+               elsif data['abbrev'] =~ /heal/ || XMLData.prepared_spell =~ /Heal/i
                  maxmana = 9000 #impossibly high mana amount so that it doesn't recalculate
                end
                
@@ -202,14 +202,11 @@ class HealMe
   end
 
   def filter_wounds(skip_parts)
-    echo skip_parts if UserVars.healme_debug
-    echo @wounds if UserVars.healme_debug
     @wounds.each{|key, y|
       y.reject!{|x| x['part'] =~ /#{skip_parts.join('|')}/i && x['type'] =~ /Fresh/i && x['location'] =~ /External/i} if !skip_parts.empty?
       y.reject!{|x| Flags["hm-#{x['location'].downcase}-#{x['type'].downcase}-#{x['part'].downcase}"]}
       @wounds.delete(key) if y.empty?
     }
-    echo("wounds: #{@wounds}") if UserVars.healme_debug
   end
   
   def best_wound(spells, location)
@@ -229,7 +226,7 @@ class HealMe
     @wounds = check_perc_health
     @wounds.each{|key, y| 
       y.each{|x|
-        Flags.add("hm-#{x['location'].downcase}-#{x['type'].downcase}-#{x['part'].downcase}", /The #{x['location'].downcase} #{x['type'] == 'Fresh' ? 'wounds' : 'scars'} on your #{x['part'].downcase.sub(/skin/,'(?:nerves|skin)')} appear completely healed/)
+        Flags.add("hm-#{x['location'].downcase}-#{x['type'].downcase}-#{x['part'].downcase}", /The #{x['location'].downcase} #{x['type'] == 'Fresh' ? 'wounds' : 'scars'} on your #{x['part'].downcase.sub(/skin/,'(?:nerves|skin)')} appear completely healed/i)
         before_dying { Flags.delete("hm-#{x['location'].downcase}-#{x['type'].downcase}-#{x['part'].downcase}") }
       }
     }
@@ -241,9 +238,7 @@ class HealMe
     return unless DRStats.empath?
     
     skip_parts = skip_parts.split(',').map(&:upcase).map(&:strip)
-    
-    check_wounds(skip_parts)
-    
+  
     spells = if @settings.waggle_sets['healing']
                @using_waggle = true
                @settings.waggle_sets['healing']
@@ -271,7 +266,7 @@ class HealMe
     
     
     loop do
-      if @wounds.empty?
+      if @wounds.empty? || @wounds.nil?
         check_wounds(skip_parts)
       end
       filter_wounds(skip_parts)
@@ -293,7 +288,7 @@ class HealMe
       end
       
       if spells[XMLData.prepared_spell]['prep_time']
-        pause 0.1 until checkcastrt.zero? || Time.now - @prepare_time >= spells[XMLData.prepared_spell]['prep_time']
+        pause 0.1 until checkcastrt.zero? || (Time.now - @prepare_time) >= spells[XMLData.prepared_spell]['prep_time']
       else
         waitcastrt?
       end
