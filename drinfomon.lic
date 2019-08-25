@@ -707,7 +707,7 @@ UserVars.XPSquelch = true unless UserVars.drinfomon_debug
 DownstreamHook.add('xp_action', xp_action)
 
 info_silence = proc do |server_string|
-  if server_string.strip.length == 0
+  if server_string.strip.length == 0 && !UserVars.drinfomon_debug
     server_string = nil
     next
   end
@@ -801,7 +801,7 @@ unless dead?
 end
 
 premiumcheck_silence = proc do |server_string|
-  if server_string.strip.length == 0
+  if server_string.strip.length == 0 && !UserVars.drinfomon_debug
     nil
     next
   end
