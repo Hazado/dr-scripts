@@ -1,0 +1,66 @@
+custom_require.call(%w[common])
+
+include DRC
+
+@settings = get_settings
+sorted_contents = {}
+$ORDINALS = %w[first second third fourth fifth sixth seventh eighth ninth tenth eleventh]
+
+action = proc { |s|
+  if s =~ /^([IO]n the .*?) (you see .*\.)/
+    container = Regexp.last_match(1)
+    contents = Regexp.last_match(2)
+  elsif s =~ /^(You rummage .*?)( and see .*?\.)/
+    container = Regexp.last_match(1)
+    contents = Regexp.last_match(2)
+  elsif s =~ /You are wearing (.*\.)/
+    container = 'Inventory'
+    contents = 'and see ' + Regexp.last_match(1)
+  end
+  
+  container = container.sub(/^([IO]n the )|You rummage through (a|an|some) /,'')
+  if contents =~ /(?:and|you) see (.*)\./
+    if contents = DRC.list_to_array(Regexp.last_match(1))
+      contents.each do |item|
+        item = item.sub(/^\s*?\b(?:a|an|some|and|the)\b\s/, '')
+        if sorted_contents[item]['count'].nil?
+          sorted_contents[item] = {}
+          sorted_contents[item]['count'] = 1
+          sorted_contents[item]['container'] = container
+        else
+          sorted_contents[item]['count'] += 1
+        end
+      end
+    end
+    sorted_contents.keys.sort!
+  end
+  
+  s
+}
+
+DownstreamHook.add('inventory', action)
+
+fput('inventory container')
+waitfor('All of your containers:')
+invcontainers = []
+while (line = get)
+  break if line =~ /Type INVENTORY HELP for more options/
+  invcontainers.push(line)
+end
+
+invcontainers.each_index {|index|
+  invcontainers[index].sub!(/^\s*?\b(?:a|an|some|and|the)\b\s/, '')
+  invcontainers[index].sub!(/ \(closed\)/,'')
+  invcontainers[index] = get_noun(invcontainers[index])
+}
+invcontainers.sort!.uniq!
+
+invcontainers.each {|x|
+  fput("rummage in my #{x}")
+  fput("rummage on my #{x}")
+}
+
+sorted_contents.each{|x|
+  echo x
+}
+DownstreamHook.remove('inventory')
