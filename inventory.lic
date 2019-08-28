@@ -4,7 +4,7 @@ include DRC
 
 @settings = get_settings
 sorted_contents = {}
-$ORDINALS = %w[first second third fourth fifth sixth seventh eighth ninth tenth eleventh]
+$ORDINALS = %w[first second third fourth fifth sixth seventh eighth ninth tenth eleventh twelfth thirteenth fourteenth fifteenth sixteenth seventeenth eighteenth nineteenth twentieth]
 
 action = proc { |s|
   if s =~ /^([IO]n the .*?) (you see .*\.)/
@@ -23,20 +23,25 @@ action = proc { |s|
     if contents = DRC.list_to_array(Regexp.last_match(1))
       contents.each do |item|
         item = item.sub(/^\s*?\b(?:a|an|some|and|the)\b\s/, '')
-        if sorted_contents[item]['count'].nil?
-          sorted_contents[item] = {}
-          sorted_contents[item]['count'] = 1
-          sorted_contents[item]['container'] = container
+        sorted_contents[container] ||= {}
+        sorted_contents ||= {}
+        if sorted_contents[container][item]['count'].nil?
+          sorted_contents[container][item] = {}
+          sorted_contents[container][item]['count'] = 1
         else
-          sorted_contents[item]['count'] += 1
+          sorted_contents[container][item]['count'] += 1
         end
       end
     end
-    sorted_contents.keys.sort!
+    sorted_contents[container] = sorted_contents[container].sort
   end
   
   s
 }
+
+before_dying do
+  DownstreamHook.remove('inventory')
+end
 
 DownstreamHook.add('inventory', action)
 
@@ -53,14 +58,15 @@ invcontainers.each_index {|index|
   invcontainers[index].sub!(/ \(closed\)/,'')
   invcontainers[index] = get_noun(invcontainers[index])
 }
-invcontainers.sort!.uniq!
+invcontainers = invcontainers.sort!.inject(Hash.new(0)) { |h,e| h[e] += 1; h }
 
-invcontainers.each {|x|
-  fput("rummage in my #{x}")
-  fput("rummage on my #{x}")
+invcontainers.each {|key, value|
+  for i in 0..value-1
+    fput("rummage in my #{$ORDINALS[i]} #{key}")
+    fput("rummage on my #{$ORDINALS[i]} #{key}")
+  end
 }
 
 sorted_contents.each{|x|
   echo x
-}
-DownstreamHook.remove('inventory')
+} 
