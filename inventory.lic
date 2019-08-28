@@ -101,10 +101,12 @@ invcontainers.each do |key, value|
   end
 end
 
-vault = ["vault"]
-vault += ["hook", "wire rack", "small shelf", "large shelf", "top drawer", "middle drawer", "bottom drawer"]
+if Room.current.title[0] =~ /Carousel Chamber/
+  fput('open vault')
+  vault = ["vault"]
+  vault += ["hook", "wire rack", "small shelf", "large shelf", "top drawer", "middle drawer", "bottom drawer"]
 
-vault.each do |key|
+  vault.each do |key|
     case bput("rummage in #{key}", "That would accomplish nothing.", "You rummage", "You can't rummage", "While it's closed?", "You should just look")
     when /You can't rummage|You should just look/
       case bput("look in #{key}", "That is closed.", "There is nothing", "you see")
@@ -197,10 +199,11 @@ vault.each do |key|
         bput("close #{key}", "You")
       end
     end
+  end
 end
 
 
-CSV.open("Scripts\\"+Char.name+".csv", 'wb') do |csv|
+CSV.open("Scripts\\"+Char.name+".csv", 'w+b') do |csv|
   csv << ["Item", "Count", "Location"]
   sorted_contents.each do |key, value|
     value.each do |x|
