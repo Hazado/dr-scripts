@@ -103,7 +103,7 @@ end
 if Room.current.title[0] =~ /Carousel Chamber/
   fput('open vault')
   vault = ["vault"]
-  vault += ["hook", "wire rack", "small shelf", "large shelf", "top drawer", "middle drawer", "bottom drawer"]
+  vault += ["hook", "wire rack", "small shelf", "large shelf", "top drawer", "middle drawer", "bottom drawer"] if UserVars.premium
 
   vault.each do |key|
     case bput("rummage in #{key}", "That would accomplish nothing.", "You rummage", "You can't rummage", "While it's closed?", "You should just look")
