@@ -98,7 +98,7 @@ action = proc { |s|
   
   container = container.sub(/^([IO]n the )|You rummage (?:through |around on )?(a|an|some) /,'')
   if contents =~ /(?:and|you) see (.*)\./
-    if contents = Regexp.last_match(1).strip.split(/,|\sand\s(?:<pushBold\/>)?(?=\ba\b|\ban\b|\bsome\b|\bthe\b)/i).reject(&:empty?)
+    if contents = Regexp.last_match(1).strip.split(/,(?=\s\ba\b|\s\ban\b|\s\bsome\b|\s\bthe\b)|\sand\s(?:<pushBold\/>)?(?=\ba\b|\ban\b|\bsome\b|\bthe\b)/i).reject(&:empty?)
       contents.each do |item|
         item = item.sub(/^\s*?\b(?:a|an|some|and|the)\b\s/, '')
         next if item =~ /bottom drawer|brass hook|large shelf|middle drawer|small shelf|steel wire rack|top drawer/
