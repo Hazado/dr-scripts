@@ -72,27 +72,27 @@ invcontainers = invcontainers.sort!.inject(Hash.new(0)) { |h,e| h[e] += 1; h }
 
 invcontainers.each do |key, value|
   for i in 0..value-1
-    case bput("rummage in #{$ORDINALS[i]} #{key}", "That would accomplish nothing.", "You rummage through", "You can't rummage around", "While it's closed?", "You should just look")
+    case DRC.bput("rummage in #{$ORDINALS[i]} #{key}", "That would accomplish nothing.", "You rummage through", "You can't rummage around", "While it's closed?", "You should just look")
     when /You can't rummage around|You should just look/
-      case bput("look in #{$ORDINALS[i]} #{key}", "That is closed.", "There is nothing", "you see")
+      case DRC.bput("look in #{$ORDINALS[i]} #{key}", "That is closed.", "There is nothing", "you see")
       when /That is closed/
-        bput("open #{$ORDINALS[i]} #{key}", "You")
+        DRC.bput("open #{$ORDINALS[i]} #{key}", "You")
         fput("look in #{$ORDINALS[i]} #{key}")
-        bput("close #{$ORDINALS[i]} #{key}", "You")
+        DRC.bput("close #{$ORDINALS[i]} #{key}", "You")
       end
     when /While it's closed?/
-      bput("open #{$ORDINALS[i]} #{key}", "You")
-      case bput("rummage in #{$ORDINALS[i]} #{key}", "That would accomplish nothing.", "You rummage through", "You can't rummage around", "While it's closed?", "You should just look")
+      DRC.bput("open #{$ORDINALS[i]} #{key}", "You")
+      case DRC.bput("rummage in #{$ORDINALS[i]} #{key}", "That would accomplish nothing.", "You rummage through", "You can't rummage around", "While it's closed?", "You should just look")
       when /That would accomplish nothing|You can't rummage around|You should just look/
         fput("look in #{$ORDINALS[i]} #{key}")
       end
-      bput("close #{$ORDINALS[i]} #{key}", "You")
+      DRC.bput("close #{$ORDINALS[i]} #{key}", "You")
     when /That would accomplish nothing/
-      case bput("look on #{$ORDINALS[i]} #{key}", "That is closed.", "There is nothing", "you see")
+      case DRC.bput("look on #{$ORDINALS[i]} #{key}", "That is closed.", "There is nothing", "you see")
       when /That is closed/
-        bput("open #{$ORDINALS[i]} #{key}", "You")
+        DRC.bput("open #{$ORDINALS[i]} #{key}", "You")
         fput("look on #{$ORDINALS[i]} #{key}")
-        bput("close #{$ORDINALS[i]} #{key}", "You")
+        DRC.bput("close #{$ORDINALS[i]} #{key}", "You")
       end
     end
   end
@@ -104,96 +104,96 @@ if Room.current.title[0] =~ /Carousel Chamber/
   vault += ["hook", "wire rack", "small shelf", "large shelf", "top drawer", "middle drawer", "bottom drawer"] if UserVars.premium
 
   vault.each do |key|
-    case bput("rummage in #{key}", "That would accomplish nothing.", "You rummage", "You can't rummage", "While it's closed?", "You should just look")
+    case DRC.bput("rummage in #{key}", "That would accomplish nothing.", "You rummage", "You can't rummage", "While it's closed?", "You should just look")
     when /You can't rummage|You should just look/
-      case bput("look in #{key}", "That is closed.", "There is nothing", "you see")
+      case DRC.bput("look in #{key}", "That is closed.", "There is nothing", "you see")
       when /That is closed/
-        bput("open #{key}", "You")
+        DRC.bput("open #{key}", "You")
         fput("look in #{key}")
-        bput("close #{key}", "You")
+        DRC.bput("close #{key}", "You")
       end
     when /While it's closed?/
-      bput("open #{key}", "You")
-      case bput("rummage in #{key}", "That would accomplish nothing.", "You rummage", "You can't rummage", "While it's closed?", "You should just look")
+      DRC.bput("open #{key}", "You")
+      case DRC.bput("rummage in #{key}", "That would accomplish nothing.", "You rummage", "You can't rummage", "While it's closed?", "You should just look")
       when /That would accomplish nothing|You can't rummage|You should just look/
         fput("look in #{key}")
       end
-      bput("close #{key}", "You")
+      DRC.bput("close #{key}", "You")
     when /That would accomplish nothing/
-      case bput("look in #{key}", "That is closed.", "There is nothing", "you see")
+      case DRC.bput("look in #{key}", "That is closed.", "There is nothing", "you see")
       when /That is closed/
-        bput("open #{key}", "You")
+        DRC.bput("open #{key}", "You")
         fput("look in #{key}")
-        bput("close #{key}", "You")
+        DRC.bput("close #{key}", "You")
       end
     end
-    case bput("rummage on #{key}", "That would accomplish nothing.", "You rummage", "You can't rummage", "While it's closed?", "You should just look")
+    case DRC.bput("rummage on #{key}", "That would accomplish nothing.", "You rummage", "You can't rummage", "While it's closed?", "You should just look")
     when /You can't rummage|You should just look/
-      case bput("look on #{key}", "That is closed.", "There is nothing", "you see")
+      case DRC.bput("look on #{key}", "That is closed.", "There is nothing", "you see")
       when /That is closed/
-        bput("open #{key}", "You")
+        DRC.bput("open #{key}", "You")
         fput("look on #{key}")
-        bput("close #{key}", "You")
+        DRC.bput("close #{key}", "You")
       end
     when /While it's closed?/
-      bput("open #{key}", "You")
-      case bput("rummage on #{key}", "That would accomplish nothing.", "You rummage", "You can't rummage", "While it's closed?", "You should just look")
+      DRC.bput("open #{key}", "You")
+      case DRC.bput("rummage on #{key}", "That would accomplish nothing.", "You rummage", "You can't rummage", "While it's closed?", "You should just look")
       when /That would accomplish nothing|You can't rummage|You should just look/
         fput("look on #{key}")
       end
-      bput("close #{key}", "You")
+      DRC.bput("close #{key}", "You")
     when /That would accomplish nothing/
-      case bput("look on #{key}", "That is closed.", "There is nothing", "you see")
+      case DRC.bput("look on #{key}", "That is closed.", "There is nothing", "you see")
       when /That is closed/
-        bput("open #{key}", "You")
+        DRC.bput("open #{key}", "You")
         fput("look on #{key}")
-        bput("close #{key}", "You")
+        DRC.bput("close #{key}", "You")
       end
     end
-    case bput("rummage behind #{key}", "That would accomplish nothing.", "You rummage", "You can't rummage", "While it's closed?", "You should just look")
+    case DRC.bput("rummage behind #{key}", "That would accomplish nothing.", "You rummage", "You can't rummage", "While it's closed?", "You should just look")
     when /You can't rummage|You should just look/
-      case bput("look behind #{key}", "That is closed.", "There is nothing", "you see")
+      case DRC.bput("look behind #{key}", "That is closed.", "There is nothing", "you see")
       when /That is closed/
-        bput("open #{key}", "You")
+        DRC.bput("open #{key}", "You")
         fput("look behind #{key}")
-        bput("close #{key}", "You")
+        DRC.bput("close #{key}", "You")
       end
     when /While it's closed?/
-      bput("open #{key}", "You")
-      case bput("rummage behind #{key}", "That would accomplish nothing.", "You rummage", "You can't rummage", "While it's closed?", "You should just look")
+      DRC.bput("open #{key}", "You")
+      case DRC.bput("rummage behind #{key}", "That would accomplish nothing.", "You rummage", "You can't rummage", "While it's closed?", "You should just look")
       when /That would accomplish nothing|You can't rummage|You should just look/
         fput("look behind #{key}")
       end
-      bput("close #{key}", "You")
+      DRC.bput("close #{key}", "You")
     when /That would accomplish nothing/
-      case bput("look behind #{key}", "That is closed.", "There is nothing", "you see")
+      case DRC.bput("look behind #{key}", "That is closed.", "There is nothing", "you see")
       when /That is closed/
-        bput("open #{key}", "You")
+        DRC.bput("open #{key}", "You")
         fput("look behind #{key}")
-        bput("close #{key}", "You")
+        DRC.bput("close #{key}", "You")
       end
     end
-    case bput("rummage under #{key}", "That would accomplish nothing.", "You rummage", "You can't rummage", "While it's closed?", "You should just look")
+    case DRC.bput("rummage under #{key}", "That would accomplish nothing.", "You rummage", "You can't rummage", "While it's closed?", "You should just look")
     when /You can't rummage|You should just look/
-      case bput("look under #{key}", "That is closed.", "There is nothing", "you see")
+      case DRC.bput("look under #{key}", "That is closed.", "There is nothing", "you see")
       when /That is closed/
-        bput("open #{key}", "You")
+        DRC.bput("open #{key}", "You")
         fput("look under #{key}")
-        bput("close #{key}", "You")
+        DRC.bput("close #{key}", "You")
       end
     when /While it's closed?/
-      bput("open #{key}", "You")
-      case bput("rummage under #{key}", "That would accomplish nothing.", "You rummage", "You can't rummage", "While it's closed?", "You should just look")
+      DRC.bput("open #{key}", "You")
+      case DRC.bput("rummage under #{key}", "That would accomplish nothing.", "You rummage", "You can't rummage", "While it's closed?", "You should just look")
       when /That would accomplish nothing|You can't rummage|You should just look/
         fput("look under #{key}")
       end
-      bput("close #{key}", "You")
+      DRC.bput("close #{key}", "You")
     when /That would accomplish nothing/
-      case bput("look under #{key}", "That is closed.", "There is nothing", "you see")
+      case DRC.bput("look under #{key}", "That is closed.", "There is nothing", "you see")
       when /That is closed/
-        bput("open #{key}", "You")
+        DRC.bput("open #{key}", "You")
         fput("look under #{key}")
-        bput("close #{key}", "You")
+        DRC.bput("close #{key}", "You")
       end
     end
   end
