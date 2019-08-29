@@ -1,7 +1,5 @@
 custom_require.call(%w[common])
 
-include DRC
-
 @settings = get_settings
 sorted_contents = {}
 $ORDINALS = %w[first second third fourth fifth sixth seventh eighth ninth tenth eleventh]
@@ -68,7 +66,7 @@ end
 invcontainers.each_index do |index|
   invcontainers[index].sub!(/^\s*?\b(?:a|an|some|and|the)\b\s/, '')
   invcontainers[index].sub!(/ \(closed\)/,'')
-  invcontainers[index] = get_noun(invcontainers[index])
+  invcontainers[index] = DRC.get_noun(invcontainers[index])
 end
 invcontainers = invcontainers.sort!.inject(Hash.new(0)) { |h,e| h[e] += 1; h }
 
