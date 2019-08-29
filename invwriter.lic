@@ -1,0 +1,25 @@
+require 'csv'
+
+sorted_contents = UserVars.InventoryTemp
+UserVars.InventoryTemp = nil
+
+temp = []
+
+if File.file?("Scripts\\inventory.csv")
+  CSV.foreach("Scripts\\inventory.csv", 'r+b') do |row|
+    if row[3] != Char.name
+      temp << row
+    end
+  end
+end
+
+CSV.open("Scripts\\inventory.csv", 'w+b') do |csv|
+  temp.each do |x|
+    csv << x
+  end
+  sorted_contents.each do |key, value|
+    value.each do |x|
+      csv << [x[0], x[1].to_h['count'], key, Char.name]
+    end
+  end
+end
