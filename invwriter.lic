@@ -1,8 +1,6 @@
 require 'csv'
 
 sorted_contents = UserVars.InventoryTemp
-UserVars.InventoryTemp = nil
-
 temp = []
 
 if File.file?("scripts/inventory.csv")
@@ -24,3 +22,5 @@ CSV.open("scripts/inventory.csv", 'w+b') do |csv|
     end
   end
 end
+
+UserVars.InventoryTemp = nil
