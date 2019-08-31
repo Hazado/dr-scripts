@@ -1,5 +1,9 @@
 custom_require.call(%w[common])
 
+if UserVars.InventoryTemp
+  start_script("invwriter")
+  exit
+end
 
 class Inventory
   include DRC
