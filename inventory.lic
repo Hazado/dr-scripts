@@ -116,8 +116,8 @@ class Inventory
     vaultInventory.each do |item|
       item.sub!(/^\s\s\s\s/,'')
       if item.match(/^\w+/)
-        last_item = "Vault - #{item}"
         item.sub!(/^\s*?\b(?:a|an|some|and|the)\b\s/, '')
+        last_item = "Vault - #{item}"
         container = 'Vault'
       elsif item.match(/^\s\s\s\s\s\s\s\s\s\s\s\s\w+/)
         item.sub!(/^\s*?\b(?:a|an|some|and|the)\b\s/, '')
