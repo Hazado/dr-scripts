@@ -56,53 +56,96 @@ class Inventory
   end
 
   DownstreamHook.add('inventory', action)
-
-  fput('inventory')
-
-  fput('inventory container')
-  waitfor('All of your containers:')
-  invcontainers = []
+  
+  fput('inventory list')
+  waitfor('You have:')
+  playerInventory = []
   while (line = get)
-    break if line =~ /Type INVENTORY HELP for more options/
-    invcontainers.push(line)
+    break if line =~ /Roundtime/
+    playerInventory.push(line)
   end
 
-  invcontainers.each_index do |index|
-    invcontainers[index].sub!(/^\s*?\b(?:a|an|some|and|the)\b\s/, '')
-    invcontainers[index].sub!(/ \(closed\)/,'')
-    invcontainers[index] = DRC.get_noun(invcontainers[index])
-  end
-  invcontainers = invcontainers.sort!.inject(Hash.new(0)) { |h,e| h[e] += 1; h }
-
-  invcontainers.each do |key, value|
-    for i in 0..value-1
-      case DRC.bput("rummage in #{$ORDINALS[i]} #{key}", "That would accomplish nothing.", "You rummage through", "You can't rummage around", "While it's closed?", "You should just look")
-      when /You can't rummage around|You should just look/
-        case DRC.bput("look in #{$ORDINALS[i]} #{key}", "That is closed.", "There is nothing", "you see")
-        when /That is closed/
-          DRC.bput("open #{$ORDINALS[i]} #{key}", "You")
-          fput("look in #{$ORDINALS[i]} #{key}")
-          DRC.bput("close #{$ORDINALS[i]} #{key}", "You")
-        end
-      when /While it's closed?/
-        DRC.bput("open #{$ORDINALS[i]} #{key}", "You")
-        case DRC.bput("rummage in #{$ORDINALS[i]} #{key}", "That would accomplish nothing.", "You rummage through", "You can't rummage around", "While it's closed?", "You should just look")
-        when /That would accomplish nothing|You can't rummage around|You should just look/
-          fput("look in #{$ORDINALS[i]} #{key}")
-        end
-        DRC.bput("close #{$ORDINALS[i]} #{key}", "You")
-      when /That would accomplish nothing/
-        case DRC.bput("look on #{$ORDINALS[i]} #{key}", "That is closed.", "There is nothing", "you see")
-        when /That is closed/
-          DRC.bput("open #{$ORDINALS[i]} #{key}", "You")
-          fput("look on #{$ORDINALS[i]} #{key}")
-          DRC.bput("close #{$ORDINALS[i]} #{key}", "You")
-        end
-      end
+  sorted_contents['Inventory'] ||= {}
+  sorted_contents ||= {}
+  last_item = nil
+  nested_container = nil
+  double_nested_container = nil
+  
+  playerInventory.each do |item|
+    item.sub!(/^\s\s/,'')
+    if item.match(/^\w+/)
+      item.sub!(/^\s*?\b(?:a|an|some|and|the)\b\s/, '')
+      last_item = "Inventory - #{item}"
+      container = 'Inventory'
+    elsif item.match(/^\s\s\s\s\s\s\s\s\s-\w+/)
+      item.sub!(/^\s*?-\b(?:a|an|some|and|the)\b\s/, '')
+      container = "#{nested_container} - #{double_nested_container}"
+    elsif item.match(/^\s\s\s\s\s\s-\w+/)
+      item.sub!(/^\s*?-\b(?:a|an|some|and|the)\b\s/, '')
+      double_nested_container = item
+      container = "#{last_item} - #{nested_container}"
+    elsif item.match(/^\s\s\s-\w+/)
+      item.sub!(/^\s*?-\b(?:a|an|some|and|the)\b\s/, '')
+      nested_container = item
+      container = "#{last_item}"
+    end
+    
+    sorted_contents[container] ||= {}
+    sorted_contents ||= {}
+    if sorted_contents[container][item]['count'].nil?
+      sorted_contents[container][item] = {}
+      sorted_contents[container][item]['count'] = 1
+    else
+      sorted_contents[container][item]['count'] += 1
     end
   end
-
-  if Room.current.title[0] =~ /Carousel Chamber/
+  
+  if DRC.bput("tap my vault book", "You tap a vault book") =~ /You tap a vault book/i
+    fput("get my vault book")
+    fput("read my vault book")
+    waitfor("Vault Inventory:")
+    vaultInventory = []
+    while (line = get)
+      break if line =~ /The last note/
+      vaultInventory.push(line)
+    end
+    last_item = nil
+    nested_container = nil
+    double_nested_container = nil
+    
+    vaultInventory.each do |item|
+      item.sub!(/^\s\s\s\s/,'')
+      if item.match(/^\w+/)
+        last_item = "Vault - #{item}"
+        item.sub!(/^\s*?\b(?:a|an|some|and|the)\b\s/, '')
+        container = 'Vault'
+      elsif item.match(/^\s\s\s\s\s\s\s\s\s\s\s\s\w+/)
+        item.sub!(/^\s*?\b(?:a|an|some|and|the)\b\s/, '')
+        container = "#{nested_container} - #{double_nested_container}"
+      elsif item.match(/^\s\s\s\s\s\s\s\s\w+/)
+        item.sub!(/^\s*?\b(?:a|an|some|and|the)\b\s/, '')
+        double_nested_container = item
+        container = "#{last_item} - #{nested_container}"
+      elsif item.match(/^\s\s\s\s\w+/)
+        item.sub!(/^\s*?\b(?:a|an|some|and|the)\b\s/, '')
+        nested_container = item
+        container = "#{last_item}"
+      end
+      
+      next if item =~ /brass hook|steel wire rack|small shelf|top drawer|middle drawer|bottom drawer|large shelf/
+      
+      sorted_contents[container] ||= {}
+      sorted_contents ||= {}
+      if sorted_contents[container][item]['count'].nil?
+        sorted_contents[container][item] = {}
+        sorted_contents[container][item]['count'] = 1
+      else
+        sorted_contents[container][item]['count'] += 1
+      end
+    end
+    
+    fput("stow my vault book")
+  elsif Room.current.title[0] =~ /Carousel Chamber/
     fput('open vault')
     vault = ["vault"]
     vault += ["hook", "wire rack", "small shelf", "large shelf", "top drawer", "middle drawer", "bottom drawer"] if UserVars.premium
